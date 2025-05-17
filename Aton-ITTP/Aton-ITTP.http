@@ -1,0 +1,6 @@
+@Aton_ITTP_HostAddress = http://localhost:5289
+
+GET {{Aton_ITTP_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
