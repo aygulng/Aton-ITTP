@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Aton_ITTP.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250517115933_User_Add_Admin")]
-    partial class User_Add_Admin
+    [Migration("20250517145536_User_Entity")]
+    partial class User_Entity
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -46,7 +46,7 @@ namespace Aton_ITTP.Migrations
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<int>("Gender")
@@ -64,7 +64,7 @@ namespace Aton_ITTP.Migrations
 
                     b.Property<DateTime>("ModifiedOn")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("Name")
@@ -82,7 +82,7 @@ namespace Aton_ITTP.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime?>("RevokedOn")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 

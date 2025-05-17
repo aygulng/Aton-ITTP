@@ -20,8 +20,13 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Создание пользователя (только для админов)
+        /// Создание пользователя по логину, паролю, имени, полу и дате рождения
+        /// + указание будет ли пользователь админом (доступно админам).
         /// </summary>
+        /// <param name="dto"> Введенные пользователем регистрационные данные из Swagger UI. </param>
+        /// <param name="adminLogin">Логин администратора</param>
+        /// <param name="adminPassword">Пароль администратора</param>
+        /// <returns>Созданный пользователь</returns>
         [HttpPost("create")]
         public async Task<IActionResult> CreateUser(
             [FromBody] UserCreateDto dto,
@@ -38,7 +43,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Изменение профиля пользователя
+        /// Изменение имени, пола или даты рождения пользователя (Может менять Администратор, либо 
+        /// лично пользователь, если он активен(отсутствует RevokedOn)) 
         /// </summary>
         [HttpPut("update-profile")]
         public async Task<IActionResult> UpdateUserProfile(
@@ -56,7 +62,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Изменение пароля пользователя
+        /// Изменение пароля (Пароль может менять либо Администратор, либо лично пользователь, 
+        /// если он активен(отсутствует RevokedOn)) 
         /// </summary>
         [HttpPut("update-password")]
         public async Task<IActionResult> UpdatePassword(
@@ -74,7 +81,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Изменение логина пользователя
+        /// Изменение логина (Логин может менять либо Администратор, либо лично пользователь, 
+        /// если он активен(отсутствует RevokedOn), логин должен оставаться уникальным) 
         /// </summary>
         [HttpPut("update-login")]
         public async Task<IActionResult> UpdateLogin(
@@ -93,7 +101,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Получение списка активных пользователей (только для админов)
+        /// Запрос списка всех активных (отсутствует RevokedOn) пользователей, 
+        /// список отсортирован по CreatedOn(Доступно Админам)
         /// </summary>
         [HttpGet("active")]
         public async Task<IActionResult> GetAllActiveUsers(
@@ -110,7 +119,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Получение пользователя по логину (только для админов)
+        /// Запрос пользователя по логину, в списке долны быть имя, 
+        /// пол и дата рождения статус активный или нет (Доступно Админам)
         /// </summary>
         [HttpGet("by-login/{login}")]
         public async Task<IActionResult> GetUserByLogin(
@@ -128,7 +138,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Получение информации о текущем пользователе
+        /// Запрос пользователя по логину и паролю 
+        /// (Доступно только самому пользователю, если он активен(отсутствует RevokedOn)) 
         /// </summary>
         [HttpGet("current")]
         public async Task<IActionResult> GetCurrentUser(
@@ -145,7 +156,7 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Получение пользователей старше указанного возраста (только для админов)
+        /// Запрос всех пользователей старше определённого возраста (Доступно Админам) 
         /// </summary>
         [HttpGet("older-than/{age}")]
         public async Task<IActionResult> GetUsersOlderThan(
@@ -163,7 +174,8 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Удаление пользователя (только для админов)
+        /// Удаление пользователя по логину полное или мягкое
+        /// (При мягком удалении должна происходить простановка RevokedOn и RevokedBy) (Доступно Админам)
         /// </summary>
         [HttpDelete("{login}")]
         public async Task<IActionResult> DeleteUser(
@@ -182,7 +194,7 @@ namespace Aton_ITTP.Controllers
         }
 
         /// <summary>
-        /// Восстановление пользователя (только для админов)
+        /// Восстановление пользователя - Очистка полей (RevokedOn, RevokedBy) (Доступно Админам)
         /// </summary>
         [HttpPut("restore/{login}")]
         public async Task<IActionResult> RestoreUser(

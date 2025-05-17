@@ -2,6 +2,8 @@ using Aton_ITTP.DataAccess;
 using Aton_ITTP.Services.Impl;
 using Aton_ITTP.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +18,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "User Management API", Version = "v1" });
+    // Указываем путь к XML-файлу с комментариями
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+
+    // Дополнительные настройки
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "User Management API",
+        Version = "v1",
+        Description = "API для управления пользователями"
+    });
 });
 
 var app = builder.Build();

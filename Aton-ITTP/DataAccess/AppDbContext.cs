@@ -37,6 +37,7 @@ namespace Aton_ITTP.DataAccess
                     .HasConversion<int>();
 
                 builder.Property(x => x.Birthday)
+                    .HasColumnType("timestamp without time zone")
                     .IsRequired(false);
 
                 builder.Property(x => x.Admin)

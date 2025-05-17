@@ -11,6 +11,23 @@ namespace Aton_ITTP.Services
     public interface IUserService
     {
         /// <summary>
+        /// Проверяет учетные данные и возвращает администратора, если он существует.
+        /// </summary>
+        /// <param name="login">Логин пользователя.</param>
+        /// <param name="password">Пароль пользователя.</param>
+        /// <returns>Результат с объектом администратора или ошибкой.</returns>
+        Task<Result<User>> GetAdminAsync(string login, string password);
+
+        /// <summary>
+        /// Получает пользователя по логину и паролю.
+        /// </summary>
+        /// <param name="login">Логин пользователя.</param>
+        /// <param name="password">Пароль пользователя.</param>
+        Task<Result<User>> AuthenticateUserAsync(
+            string login,
+            string password);
+
+        /// <summary>
         /// Создание пользователя по логину, паролю, имени, полу и дате рождения 
         /// + указание будет ли пользователь админом (Доступно Админам)
         /// </summary>

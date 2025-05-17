@@ -31,6 +31,7 @@ namespace Aton_ITTP.Models
         /// <summary>
         /// Новая дата рождения пользователя (необязательное поле)
         /// </summary>
+        [DataType(DataType.Date)]
         public DateTime? Birthday { get; set; }
     }
 }

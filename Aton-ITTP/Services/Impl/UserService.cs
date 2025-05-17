@@ -20,23 +20,51 @@ namespace Aton_ITTP.Services.Impl
         }
 
         /// <inheritdoc />
+        public async Task<Result<User>> GetAdminAsync(
+            string login, 
+            string password)
+        {
+            var admin = await _db.Set<User>()
+                .Where(u => u.Login == login)
+                .Where(u => u.Password == password)
+                .Where(u => u.Admin)
+                .Where(u => u.RevokedOn == null)
+                .FirstOrDefaultAsync();
+
+            if (admin == null)
+                return Result<User>.WithError("Admin access required");
+
+            return Result<User>.WithData(admin);
+        }
+
+        /// <inheritdoc />
+        public async Task<Result<User>> AuthenticateUserAsync(
+            string login, 
+            string password)
+        {
+            var user = await _db.Set<User>()
+                .Where(u => u.Login == login)
+                .Where(u => u.Password == password)
+                .Where(u => u.RevokedOn == null)
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+                return Result<User>.WithError("Invalid credentials or user is revoked");
+
+            return Result<User>.WithData(user);
+        }
+
+        /// <inheritdoc />
         public async Task<Result> CreateUserAsync(
             UserCreateDto dto, 
             string adminLogin, 
             string adminPassword)
-        {
-            var admin = await _db.Set<User>()
-                .Where(x => x.Login == adminLogin)
-                .Where(x => x.Password == adminPassword)
-                .Where(x => x.Admin)
-                .Where(x => x.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (admin == null)
-            {
-                _log.LogWarning("Unauthorized attempt to create user by {Login}", adminLogin);
-                return Result.WithError("Only admins can create users");
-            }
+        {          
+            var adminResult = await GetAdminAsync(adminLogin, adminPassword);
+            if (!adminResult.Success)
+                return Result.WithError(adminResult.Error);
+            
+            var admin = adminResult.Value;
 
             var userExists = await _db.Set<User>()
                 .AnyAsync(x => x.Login == dto.Login);
@@ -52,7 +80,7 @@ namespace Aton_ITTP.Services.Impl
                 Password = dto.Password,
                 Name = dto.Name,
                 Gender = dto.Gender,
-                Birthday = dto.Birthday,
+                Birthday = dto.Birthday?.Date,
                 Admin = dto.IsAdmin,
                 CreatedBy = admin.Login,
                 ModifiedBy = admin.Login
@@ -71,20 +99,17 @@ namespace Aton_ITTP.Services.Impl
             string currentUserLogin,
             string currentUserPassword)
         {
-            var currentUser = await _db.Set<User>()
-                .Where(x => x.Login == currentUserLogin)
-                .Where(x => x.Password == currentUserPassword)
-                .Where(x => x.RevokedOn == null)
-                .FirstOrDefaultAsync();
+            var userResult = await AuthenticateUserAsync(currentUserLogin, currentUserPassword);
+            if (!userResult.Success)
+                return Result.WithError(userResult.Error);
 
-            if (currentUser == null)
-                return Result.WithError("Invalid credentials");
+            var currentUser = userResult.Value;
 
             var userToUpdate = await _db.Set<User>()
                 .FirstOrDefaultAsync(x => x.Login == dto.Login);
 
             if (userToUpdate == null)
-                return Result.WithError("User not found");
+                return Result.WithError("User with this login was not found");
 
             if (userToUpdate.RevokedOn != null)
                 return Result.WithError("User is revoked");
@@ -105,19 +130,52 @@ namespace Aton_ITTP.Services.Impl
         }
 
         /// <inheritdoc />
+        public async Task<Result> UpdateLoginAsync(
+            UpdateLoginDto dto,
+            string currentUserLogin,
+            string currentUserPassword)
+        {
+            var userResult = await AuthenticateUserAsync(currentUserLogin, currentUserPassword);
+            if (!userResult.Success)
+                return Result.WithError(userResult.Error);
+
+            var currentUser = userResult.Value;
+
+            var userToUpdate = await _db.Set<User>()
+                .FirstOrDefaultAsync(u => u.Login == dto.OldLogin);
+
+            if (userToUpdate == null)
+                return Result.WithError("User not found");
+
+            if (!currentUser.Admin && currentUser.Login != userToUpdate.Login)
+                return Result.WithError("No permission to update this user's login");
+
+            if (userToUpdate.RevokedOn != null)
+                return Result.WithError("Cannot update login for revoked user");
+
+            if (await _db.Set<User>().AnyAsync(u => u.Login == dto.NewLogin))
+                return Result.WithError("New login is already taken");
+
+            userToUpdate.Login = dto.NewLogin;
+            userToUpdate.ModifiedOn = DateTime.UtcNow;
+            userToUpdate.ModifiedBy = currentUserLogin;
+
+            await _db.SaveChangesAsync();
+            _log.LogInformation("Login updated for user {OldLogin} to {NewLogin}", dto.OldLogin, dto.NewLogin);
+            return Result.WithData();
+        }
+
+        /// <inheritdoc />
         public async Task<Result> UpdatePasswordAsync(
             UpdatePasswordDto dto,
             string currentUserLogin,
             string currentUserPassword)
         {
-            var currentUser = await _db.Set<User>()
-                .Where(x => x.Login == currentUserLogin)
-                .Where(x => x.Password == currentUserPassword)
-                .Where(x => x.RevokedOn == null)
-                .FirstOrDefaultAsync();
+            var userResult = await AuthenticateUserAsync(currentUserLogin, currentUserPassword);
+            if (!userResult.Success)
+                return Result.WithError(userResult.Error);
 
-            if (currentUser == null)
-                return Result.WithError("Invalid credentials");
+            var currentUser = userResult.Value;
 
             var userToUpdate = await _db.Set<User>()
                 .FirstOrDefaultAsync(x => x.Login == dto.Login);
@@ -144,15 +202,11 @@ namespace Aton_ITTP.Services.Impl
             string adminLogin,
             string adminPassword)
         {
-            var admin = await _db.Set<User>()
-                .Where(x => x.Login == adminLogin)
-                .Where(x => x.Password == adminPassword)
-                .Where(x => x.Admin)
-                .Where(x => x.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (admin == null)
-                return Result<List<UserResponse>>.WithError("Admin access required");
+            var adminResult = await GetAdminAsync(adminLogin, adminPassword);
+            if (!adminResult.Success)
+                return Result<List<UserResponse>>.WithError(adminResult.Error);
+            
+            var admin = adminResult.Value;
 
             var users = await _db.Set<User>()
                 .Where(x => x.RevokedOn == null)
@@ -164,51 +218,16 @@ namespace Aton_ITTP.Services.Impl
         }
 
         /// <inheritdoc />
-        public async Task<Result> SoftDeleteUserAsync(
-            string login,
-            string revokedByLogin,
-            string revokedByPassword)
-        {
-            var admin = await _db.Set<User>()
-                .Where(x => x.Login == revokedByLogin)
-                .Where(x => x.Password == revokedByPassword)
-                .Where(x => x.Admin)
-                .Where(x => x.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (admin == null)
-                return Result.WithError("Admin access required");
-
-            var user = await _db.Set<User>()
-                .FirstOrDefaultAsync(x => x.Login == login);
-
-            if (user == null)
-                return Result.WithError("User not found");
-
-            user.RevokedOn = DateTime.UtcNow;
-            user.RevokedBy = revokedByLogin;
-            user.ModifiedOn = DateTime.UtcNow;
-            user.ModifiedBy = revokedByLogin;
-
-            await _db.SaveChangesAsync();
-            return Result.WithData();
-        }
-
-        /// <inheritdoc />
         public async Task<Result> RestoreUserAsync(
             string login,
-            string restoredByLogin,
-            string restoredByPassword)
+            string adminLogin,
+            string adminPassword)
         {
-            var admin = await _db.Set<User>()
-                .Where(x => x.Login == restoredByLogin)
-                .Where(x => x.Password == restoredByPassword)
-                .Where(x => x.Admin)
-                .Where(x => x.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (admin == null)
-                return Result.WithError("Admin access required");
+            var adminResult = await GetAdminAsync(adminLogin, adminPassword);
+            if (!adminResult.Success)
+                return Result.WithError(adminResult.Error);
+            
+            var admin = adminResult.Value;
 
             var user = await _db.Set<User>()
                 .FirstOrDefaultAsync(x => x.Login == login);
@@ -219,65 +238,23 @@ namespace Aton_ITTP.Services.Impl
             user.RevokedOn = null;
             user.RevokedBy = string.Empty;
             user.ModifiedOn = DateTime.UtcNow;
-            user.ModifiedBy = restoredByLogin;
+            user.ModifiedBy = adminLogin;
 
             await _db.SaveChangesAsync();
             return Result.WithData();
         }
 
-        public async Task<Result> UpdateLoginAsync(
-            UpdateLoginDto dto,
-            string currentUserLogin,
-            string currentUserPassword)
-        {
-            var currentUser = await _db.Set<User>()
-                .Where(u => u.Login == currentUserLogin && u.Password == currentUserPassword && u.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (currentUser == null)
-            {
-                _log.LogWarning("Unauthorized login update attempt by {Login}", currentUserLogin);
-                return Result.WithError("Invalid credentials or user is revoked");
-            }
-
-            var userToUpdate = await _db.Set<User>()
-                .FirstOrDefaultAsync(u => u.Login == dto.OldLogin);
-
-            if (userToUpdate == null)
-                return Result.WithError("User not found");
-
-            if (!currentUser.Admin && currentUser.Login != userToUpdate.Login)
-                return Result.WithError("No permission to update this user's login");
-
-            if (userToUpdate.RevokedOn != null)
-                return Result.WithError("Cannot update login for revoked user");
-
-            if (await _db.Set<User>().AnyAsync(u => u.Login == dto.NewLogin))
-                return Result.WithError("New login is already taken");
-
-            userToUpdate.Login = dto.NewLogin;
-            userToUpdate.ModifiedOn = DateTime.UtcNow;
-            userToUpdate.ModifiedBy = currentUserLogin;
-
-            await _db.SaveChangesAsync();
-            _log.LogInformation("Login updated for user {OldLogin} to {NewLogin}", dto.OldLogin, dto.NewLogin);
-            return Result.WithData();
-        }
-
+        /// <inheritdoc />
         public async Task<Result<UserResponse>> GetUserByLoginAsync(
             string login,
             string adminLogin,
             string adminPassword)
         {
-            var admin = await _db.Set<User>()
-                .Where(u => u.Login == adminLogin && u.Password == adminPassword && u.Admin && u.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (admin == null)
-            {
-                _log.LogWarning("Unauthorized user info request by {Login}", adminLogin);
-                return Result<UserResponse>.WithError("Admin access required");
-            }
+            var adminResult = await GetAdminAsync(adminLogin, adminPassword);
+            if (!adminResult.Success)
+                return Result<UserResponse>.WithError(adminResult.Error);
+            
+            var admin = adminResult.Value;
 
             var user = await _db.Set<User>()
                 .Where(u => u.Login == login)
@@ -290,6 +267,7 @@ namespace Aton_ITTP.Services.Impl
             return Result<UserResponse>.WithData(user);
         }
 
+        /// <inheritdoc />
         public async Task<Result<UserResponse>> GetCurrentUserAsync(
             string login,
             string password)
@@ -308,25 +286,20 @@ namespace Aton_ITTP.Services.Impl
             return Result<UserResponse>.WithData(user);
         }
 
+        /// <inheritdoc />
         public async Task<Result<List<UserResponse>>> GetUsersOlderThanAsync(
             int age,
             string adminLogin,
             string adminPassword)
         {
-            var admin = await _db.Set<User>()
-                .Where(u => u.Login == adminLogin && u.Password == adminPassword && u.Admin && u.RevokedOn == null)
-                .FirstOrDefaultAsync();
+            var adminResult = await GetAdminAsync(adminLogin, adminPassword);
+            if (!adminResult.Success)
+                return Result<List<UserResponse>>.WithError(adminResult.Error);
+            
+            var admin = adminResult.Value;
 
-            if (admin == null)
-            {
-                _log.LogWarning("Unauthorized age filter request by {Login}", adminLogin);
-                return Result<List<UserResponse>>.WithError("Admin access required");
-            }
-
-            // Вычисляем минимальную дату рождения
             var minBirthDate = DateTime.UtcNow.AddYears(-age);
 
-            // Получаем пользователей старше указанного возраста
             var users = await _db.Set<User>()
                 .Where(u => u.Birthday != null && u.Birthday <= minBirthDate)
                 .OrderByDescending(u => u.Birthday)
@@ -336,24 +309,18 @@ namespace Aton_ITTP.Services.Impl
             return Result<List<UserResponse>>.WithData(users);
         }
 
+        /// <inheritdoc />
         public async Task<Result> DeleteUserAsync(
             string login,
             bool hardDelete,
             string adminLogin,
             string adminPassword)
         {
-            var admin = await _db.Set<User>()
-                .Where(u => u.Login == adminLogin 
-                && u.Password == adminPassword 
-                && u.Admin 
-                && u.RevokedOn == null)
-                .FirstOrDefaultAsync();
-
-            if (admin == null)
-            {
-                _log.LogWarning("Unauthorized delete attempt by {Login}", adminLogin);
-                return Result.WithError("Admin access required");
-            }
+            var adminResult = await GetAdminAsync(adminLogin, adminPassword);
+            if (!adminResult.Success)
+                return Result.WithError(adminResult.Error);
+            
+            var admin = adminResult.Value;
 
             var user = await _db.Set<User>()
                 .FirstOrDefaultAsync(u => u.Login == login);

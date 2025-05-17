@@ -22,11 +22,11 @@ namespace Aton_ITTP.Migrations
                     Gender = table.Column<int>(type: "integer", nullable: false),
                     Birthday = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
                     Admin = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    CreatedOn = table.Column<DateTime>(type: "timestamp without time zone", nullable: false, defaultValueSql: "NOW()"),
+                    CreatedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()"),
                     CreatedBy = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    ModifiedOn = table.Column<DateTime>(type: "timestamp without time zone", nullable: false, defaultValueSql: "NOW()"),
+                    ModifiedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()"),
                     ModifiedBy = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    RevokedOn = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    RevokedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     RevokedBy = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
@@ -39,6 +39,11 @@ namespace Aton_ITTP.Migrations
                 table: "User",
                 column: "Login",
                 unique: true);
+
+            migrationBuilder.Sql(@"
+                INSERT INTO ""User"" (""Id"", ""Login"", ""Password"", ""Name"", ""Gender"", ""Admin"", ""CreatedBy"", ""ModifiedBy"")
+                VALUES (gen_random_uuid(), 'Admin', 'Admin', 'Administrator', 1, true, 'System', 'System');
+            ");
         }
 
         /// <inheritdoc />

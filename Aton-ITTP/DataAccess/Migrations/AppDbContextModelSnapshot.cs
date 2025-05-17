@@ -34,7 +34,7 @@ namespace Aton_ITTP.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<DateTime?>("Birthday")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
